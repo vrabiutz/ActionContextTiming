@@ -9,7 +9,7 @@ counts <- read.csv('./data/counts.csv') %>%
   mutate(trialNum = 1:nrow(.),
          id       = 'S001') %>%
   select(trialNum:id, category, fname, prestime, ends_with('_correct')) %>%
-  arrange(id, category, fname, prestime) %>%
+  #arrange(id, category, fname, prestime) %>%
   rename(Action = Action_correct,
          Context = Context_correct,
          Object = Object_correct,
@@ -21,8 +21,16 @@ counts <- read.csv('./data/counts.csv') %>%
   mutate(N_normalized =  max(k),
          N_original   = 5) %>%
   ungroup() %>%
-  mutate(across(id:fname,  as.factor))
+  mutate(across(id:fname,  as.factor)) %>%
+  arrange(id, Target, category, fname, prestime)
   
+tabC <- counts %>% 
+  group_by(id, Target, prestime) %>%
+  summarize(k = sum(k),
+            N = sum(N_normalized)) %>%
+  mutate(correct = k/N) %>%
+  ungroup()
+
 
 # read data and normalize accuracies per participant, picture and dimension
 accuracies <- read.csv('./data/accuracies_raw.csv') %>%
@@ -37,21 +45,51 @@ accuracies <- read.csv('./data/accuracies_raw.csv') %>%
                   .names = 'n_{col}')) %>%
     ungroup()
 
+tabA <- accuracies %>% 
+  group_by(id, prestime) %>%
+  summarize(Action = mean(n_Action),
+            Context = mean(n_Context),
+            Object = mean(n_Object),
+            Sensory = mean(n_Sensory)) %>%
+  ungroup()
+
+
+  
+  
 # fit without guesses and lapses
 fit1 <- counts %>% 
         filter(Target != 'Sensory' & prestime != 500) %>%
         quickpsy(., prestime, k, N_normalized, grouping = .(id, Target), 
            bootstrap = 'none')  
 
+tabF <- fit1$averages %>%
+  group_by(id, Target, prestime) %>%
+  summarize(correct = mean(prob)) %>%
+  ungroup()
+
+  
+  
+    
 #plotAndTest(fit1)
 
 
 # fit with guess and lapses; restrict parameter space for fitting
 fit2 <- counts %>% 
-        filter(Target != 'Sensory' & prestime != 500) %>%
+  filter(Target != 'Sensory' & prestime < 500) %>%
+  quickpsy(., prestime, k, N_normalized, grouping = .(id, Target), 
+           lapses = TRUE, 
+           guess = TRUE, xmax = 100,
+           parini = list(c(0, 100), c(0, 100),c(0, 1), c(0, 1)),
+           bootstrap = 'none')
+
+
+
+fit2 <- counts %>% 
+        filter(Target == 'Action') %>%
         quickpsy(., prestime, k, N_normalized, grouping = .(id, Target), 
-                 lapses = TRUE, guess = TRUE,
-                 parini = list(c(0, 500), c(0, 500), c(0, .2), c(0, 0.3)),
+                 lapses = 1-tabC$correct[tabC$Target == 'Action' & tabC$prestime == 500], 
+                 guess = TRUE, xmax = 100,
+                 parini = list(c(0, 100), c(0, 100),c(0, 1)),
                  bootstrap = 'none')
 plotAndTest(fit2)
 
