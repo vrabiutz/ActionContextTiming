@@ -68,12 +68,12 @@ tabC <- counts %>%
 # fix lapse rate to (1 - avgerage accuracy in 500 ms condition).
 # fit only data between 33.3 to 100 ms 
 fitted2 = counts %>%
-    filter(Target !='Sensory') %>%
+    #filter(Target !='Sensory') %>%
     group_by(id, Target) %>%
     mutate(lapse = 1-sum(k[prestime == 500])/sum(N_normalized[prestime == 500])) %>%
     group_split %>%
     map(~quickpsy(., prestime, k, N_normalized, 
-                    lapses = unique(.$lapse), 
+                    lapses = unique(.$lapse),  # what if two lapses are equal betw. features?
                     guess = TRUE, xmax = 100,
                     parini = list(c(0, 100), c(0, 100), c(0, 1)),
                     bootstrap = 'none'))
@@ -101,14 +101,16 @@ plot(NULL, xlim = c(0,180), ylim = c(0,1),
 plotfun(fitted2[[1]], 'red')
 plotfun(fitted2[[2]], 'blue')
 plotfun(fitted2[[3]], 'black')
+plotfun(fitted2[[4]], 'gold')
+
 
 # add ticks, labels etc
 xvalues <- round(sort(unique(counts$prestime[counts$prestime < 500])))
 axis(1, at = xvalues)
-legend(10,0.9,legend = c('Action', 'Context', 'Object'), 
+legend(10,0.9,legend = c('Action', 'Context', 'Object', 'Sensory'), 
        lty = c('solid', 'solid', 'solid'),
        lwd = c(2,2,2),
-       col = c('red', 'blue', 'black'), bty='n')
+       col = c('red', 'blue', 'black', 'gold'), bty='n')
 abline(h = 0.5, lty = 'dashed')
 
 
